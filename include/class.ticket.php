@@ -1547,7 +1547,7 @@ implements RestrictedAccess, Threadable {
         // We're also checking autorespond flag because we don't want to
         // reopen closed tickets on auto-reply from end user. This is not to
         // confused with autorespond on new message setting
-        if ($reopen && $this->isClosed() && $this->isReopenable()) {
+        /*if ($reopen && $this->isClosed() && $this->isReopenable()) {
             $this->reopen();
             // Auto-assign to closing staff or the last respondent if the
             // agent is available and has access. Otherwise, put the ticket back
@@ -1564,7 +1564,7 @@ implements RestrictedAccess, Threadable {
                 $this->setStaffId($staff->getId());
             else
                 $this->setStaffId(0); // Clear assignment
-        }
+        }*/
 
         if (!$autorespond)
             return;

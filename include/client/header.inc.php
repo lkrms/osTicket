@@ -53,6 +53,10 @@ if ($lang) {
     <script type="text/javascript" src="<?php echo ROOT_PATH; ?>js/redactor-osticket.js"></script>
     <script type="text/javascript" src="<?php echo ROOT_PATH; ?>js/select2.min.js"></script>
     <script type="text/javascript" src="<?php echo ROOT_PATH; ?>js/fabric.min.js"></script>
+<link rel="icon" href="<?php echo ROOT_PATH; ?>cropped-LINA-creative-target-colour-200x200.png" sizes="32x32" />
+<link rel="icon" href="<?php echo ROOT_PATH; ?>cropped-LINA-creative-target-colour-200x200.png" sizes="192x192" />
+<link rel="apple-touch-icon-precomposed" href="<?php echo ROOT_PATH; ?>cropped-LINA-creative-target-colour-200x200.png" />
+<meta name="msapplication-TileImage" content="<?php echo ROOT_PATH; ?>cropped-LINA-creative-target-colour-300x300.png" />
     <?php
     if($ost && ($headers=$ost->getExtraHeaders())) {
         echo "\n\t".implode("\n\t", $headers)."\n";

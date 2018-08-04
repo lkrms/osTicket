@@ -131,8 +131,8 @@ if($_POST && !$errors):
                     $thisstaff->getId());
 
                 // Go back to the ticket listing page on reply
-                $ticket = null;
-                $redirect = 'tickets.php';
+                //$ticket = null;
+                //$redirect = 'tickets.php';
 
             } elseif(!$errors['err']) {
                 $errors['err']=sprintf('%s %s',
