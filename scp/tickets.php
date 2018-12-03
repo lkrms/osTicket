@@ -171,14 +171,14 @@ if($_POST && !$errors):
                 // Remove staff's locks
                 $ticket->releaseLock($thisstaff->getId());
 
-                if($wasOpen && $ticket->isClosed())
-                    $ticket = null; //Going back to main listing.
-                else
+                //if($wasOpen && $ticket->isClosed())
+                //    $ticket = null; //Going back to main listing.
+                //else
                     // Ticket is still open -- clear draft for the note
                     Draft::deleteForNamespace('ticket.note.'.$ticket->getId(),
                         $thisstaff->getId());
 
-                 $redirect = 'tickets.php';
+                 //$redirect = 'tickets.php';
             } else {
 
                 if(!$errors['err'])

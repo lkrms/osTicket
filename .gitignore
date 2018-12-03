@@ -1,3 +1,4 @@
+*.code-*
 *.sublime-*
 
 .htaccess
