@@ -522,7 +522,7 @@ class DynamicList extends VerySimpleModel implements CustomList {
         foreach (DynamicList::objects() as $list) {
             $selections['list-'.$list->id] =
                 array($list->getPluralName(),
-                    SelectionField, $list->get('id'));
+                    'SelectionField', $list->get('id'));
         }
         return $selections;
     }
@@ -785,6 +785,9 @@ class DynamicListItem extends VerySimpleModel implements CustomListItem {
     }
 
     function display() {
+
+        return $this->getValue();
+        //TODO: Allow for display mode (edit, preview or both)
         return sprintf('<a class="preview" href="#"
                 data-preview="#list/%d/items/%d/preview">%s</a>',
                 $this->getListId(),
@@ -1094,7 +1097,7 @@ CustomListHandler::register('ticket-status', 'TicketStatusList');
 
 class TicketStatus
 extends VerySimpleModel
-implements CustomListItem, TemplateVariable {
+implements CustomListItem, TemplateVariable, Searchable {
 
     static $meta = array(
         'table' => TICKET_STATUS_TABLE,
@@ -1102,7 +1105,7 @@ implements CustomListItem, TemplateVariable {
         'pk' => array('id'),
         'joins' => array(
             'tickets' => array(
-                'reverse' => 'TicketModel.status',
+                'reverse' => 'Ticket.status',
                 )
         )
     );
@@ -1273,6 +1276,22 @@ implements CustomListItem, TemplateVariable {
         return $base;
     }
 
+    // Searchable interface
+    static function getSearchableFields() {
+        return array(
+            'state' => new TicketStateChoiceField(array(
+                'label' => __('State'),
+            )),
+            'id' => new TicketStatusChoiceField(array(
+                'label' => __('Status Name'),
+            )),
+        );
+    }
+
+    static function supportsCustomData() {
+        return false;
+    }
+
     function getList() {
         if (!isset($this->_list))
             $this->_list = DynamicList::lookup(array('type' => 'ticket-status'));
@@ -1402,6 +1421,9 @@ implements CustomListItem, TemplateVariable {
     }
 
     function display() {
+
+        return $this->getLocalName();
+
         return sprintf('<a class="preview" href="#"
                 data-preview="#list/%d/items/%d/preview">%s</a>',
                 $this->getListId(),

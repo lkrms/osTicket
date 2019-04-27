@@ -1,7 +1,7 @@
 <?php
 if (!defined('OSTSCPINC')
     || !$thisstaff || !$task
-    || !($role = $thisstaff->getRole($task->getDeptId())))
+    || !($role = $thisstaff->getRole($task->getDept())))
     die('Invalid path');
 
 global $cfg;
@@ -78,7 +78,7 @@ if ($role->hasPerm(Task::PERM_DELETE)) {
             'delete' => array(
                 'href' => sprintf('#tasks/%d/delete', $task->getId()),
                 'icon' => 'icon-trash',
-                'class' => 'red button',
+                'class' => (strpos($_SERVER['REQUEST_URI'], 'tickets.php') !== false) ? 'danger' : 'red button',
                 'label' => __('Delete'),
                 'redirect' => 'tasks.php'
             ));
@@ -146,7 +146,7 @@ if ($task->isOverdue())
                 <ul>
 
                     <?php
-                    if ($task->isOpen()) { ?>
+                    if (!$task->isOpen()) { ?>
                     <li>
                         <a class="no-pjax task-action"
                             href="#tasks/<?php echo $task->getId(); ?>/reopen"><i
@@ -372,9 +372,9 @@ if (!$ticket) { ?>
                         <th><?php echo __('Collaborators');?>:</th>
                         <td>
                             <?php
-                            $collaborators = __('Add Participants');
+                            $collaborators = __('Collaborators');
                             if ($task->getThread()->getNumCollaborators())
-                                $collaborators = sprintf(__('Participants (%d)'),
+                                $collaborators = sprintf(__('Collaborators (%d)'),
                                         $task->getThread()->getNumCollaborators());
 
                             echo sprintf('<span><a class="collaborators preview"
@@ -486,9 +486,9 @@ else
                         style="display:<?php echo $thread->getNumCollaborators() ? 'inline-block': 'none'; ?>;"
                         >
                     <?php
-                    $recipients = __('Add Participants');
+                    $recipients = __('Collaborators');
                     if ($thread->getNumCollaborators())
-                        $recipients = sprintf(__('Recipients (%d of %d)'),
+                        $recipients = sprintf(__('Collaborators (%d of %d)'),
                                 $thread->getNumActiveCollaborators(),
                                 $thread->getNumCollaborators());
 
@@ -619,7 +619,6 @@ else
 <?php
 echo $reply_attachments_form->getMedia();
 ?>
-
 <script type="text/javascript">
 $(function() {
     $(document).off('.tasks-content');
@@ -665,7 +664,10 @@ $(function() {
                 .slideUp();
             }
         })
-        .done(function() { })
+        .done(function() {
+            $('#loading').hide();
+            $.toggleOverlay(false);
+        })
         .fail(function() { });
      });
     <?php

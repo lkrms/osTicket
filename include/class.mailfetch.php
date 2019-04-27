@@ -204,7 +204,7 @@ class MailFetcher {
                     $s_filter = stream_filter_append($f, 'convert.base64-decode',STREAM_FILTER_WRITE);
                     if (!fwrite($f, $text))
                         throw new Exception();
-                    stream_filter_remove($s_filter); 
+                    stream_filter_remove($s_filter);
                     fclose($f);
                     if (!($f = fopen($temp, 'r')) || !($text = fread($f, filesize($temp))))
                         throw new Exception();
@@ -333,22 +333,35 @@ class MailFetcher {
                 $tolist['delivered-to'] = $delivered_to;
         }
 
+        $header['system_emails'] = array();
         $header['recipients'] = array();
+        $header['thread_entry_recipients'] = array();
         foreach($tolist as $source => $list) {
             foreach($list as $addr) {
                 if (!($emailId=Email::getIdByEmail(strtolower($addr->mailbox).'@'.$addr->host))) {
                     //Skip virtual Delivered-To addresses
                     if ($source == 'delivered-to') continue;
 
+                    $name = $this->mime_decode(@$addr->personal);
+                    $email = strtolower($addr->mailbox).'@'.$addr->host;
                     $header['recipients'][] = array(
                             'source' => sprintf(_S("Email (%s)"),$source),
-                            'name' => $this->mime_decode(@$addr->personal),
-                            'email' => strtolower($addr->mailbox).'@'.$addr->host);
-                } elseif(!$header['emailId']) {
-                    $header['emailId'] = $emailId;
+                            'name' => $name,
+                            'email' => $email);
+
+                    $header['thread_entry_recipients'][$source][] = sprintf('%s <%s>', $name, $email);
+                } elseif ($emailId) {
+                    $header['system_emails'][] = $emailId;
+                    $system_email = Email::lookup($emailId);
+                    $header['thread_entry_recipients']['to'][] = (string) $system_email;
+                    if (!$header['emailId'])
+                        $header['emailId'] = $emailId;
                 }
             }
         }
+
+        if (isset($header['thread_entry_recipients']['to']))
+            $header['thread_entry_recipients']['to'] = array_unique($header['thread_entry_recipients']['to']);
 
         //See if any of the recipients is a delivered to address
         if ($tolist['delivered-to']) {
@@ -361,13 +374,17 @@ class MailFetcher {
         }
 
         //BCCed?
-        if(!$header['emailId']) {
-            if ($headerinfo->bcc) {
-                foreach($headerinfo->bcc as $addr)
-                    if (($header['emailId'] = Email::getIdByEmail(strtolower($addr->mailbox).'@'.$addr->host)))
-                        break;
+        if ($bcc = $headerinfo->bcc) {
+            foreach ($bcc as $addr) {
+                if (!($emailId=Email::getIdByEmail($addr->mailbox.'@'.$addr->host)))
+                    continue;
+                $header['system_emails'][] = $emailId;
+                if (!$header['emailId'])
+                    $header['emailId'] = $emailId;
             }
         }
+
+        $header['system_emails'] = array_unique($header['system_emails']);
 
         // Ensure we have a message-id. If unable to read it out of the
         // email, use the hash of the entire email headers
@@ -384,8 +401,17 @@ class MailFetcher {
         return $header;
     }
 
+    function fetchBody($mid, $index, $encoding) {
+        $body = imap_fetchbody($this->mbox, $mid, $index);
+        if ($body && $encoding)
+            $body = $this->decode($body, $encoding);
+
+        return $body;
+    }
+
     //search for specific mime type parts....encoding is the desired encoding.
-    function getPart($mid, $mimeType, $encoding=false, $struct=null, $partNumber=false, $recurse=-1, $recurseIntoRfc822=true) {
+    function getPart($mid, $mimeType, $encoding=false, $struct=null,
+        $partNumber=false, $recurse=-1, $recurseIntoRfc822=false) {
 
         if(!$struct && $mid)
             $struct=@imap_fetchstructure($this->mbox, $mid);
@@ -475,8 +501,9 @@ class MailFetcher {
 
      */
     function getAttachments($part, $index=0) {
-
-        if($part && !$part->parts) {
+        $ctype = $part ? $this->getMimeType($part) : false;
+        if($part && (!$part->parts
+              || strcasecmp($ctype, 'message/rfc822') === 0)) {
             //Check if the part is an attachment.
             $filename = false;
             if ($part->ifdisposition && $part->ifdparameters
@@ -500,6 +527,12 @@ class MailFetcher {
             if (!$filename && $content_id && $part->type == 5) {
                 $filename = _S('image').'-'.Misc::randCode(4).'.'.strtolower($part->subtype);
             }
+
+            // Attached message/rfc822 without filename.
+            if (!$filename
+                  && $ctype
+                  && strcasecmp($ctype, 'message/rfc822') === 0)
+                $filename = 'email-message-'.Misc::randCode(4).'.eml';
 
             if($filename) {
                 return array(
@@ -658,11 +691,13 @@ class MailFetcher {
 	        return true; //Report success (moved or delete)
         }
 
-        // Parse MS TNEF emails
+        // Process overloaded attachments
         if (($struct = imap_fetchstructure($this->mbox, $mid))
                 && ($attachments = $this->getAttachments($struct))) {
             foreach ($attachments as $i=>$info) {
-                if (0 === strcasecmp('application/ms-tnef', $info['type'])) {
+                switch (strtolower($info['type'])) {
+                // Parse MS TNEF emails
+                case 'application/ms-tnef':
                     try {
                         $data = $this->decode(imap_fetchbody($this->mbox,
                             $mid, $info['index']), $info['encoding']);
@@ -675,6 +710,26 @@ class MailFetcher {
                     } catch (TnefException $ex) {
                         // Noop -- winmail.dat remains an attachment
                     }
+                    break;
+                // Parse attached email message
+                case 'message/rfc822':
+                    try {
+                        // Fetch the header of attached mime message.
+                        $body = $this->fetchBody($mid, $info['index'].'.0',
+                            $info['encoding']);
+                        // Add fake body to make the parser happy
+                        if ($body)
+                             $body.="\n\nJunk";
+
+                        $parser = new Mail_Parse($body);
+                        if ($parser->decode()
+                              && ($subj = $parser->getSubject()))
+                            $attachments[$i]['name'] = $subj.'.eml';
+                    } catch(Exception $ex) {
+                        // Noop -- use random name
+                    }
+                    $body = $parser = null;
+                    break;
                 }
             }
         }
@@ -685,6 +740,7 @@ class MailFetcher {
         $vars['emailId'] = $mailinfo['emailId'] ?: $this->getEmailId();
         $vars['to-email-id'] = $mailinfo['emailId'] ?: 0;
         $vars['mailflags'] = new ArrayObject();
+        $vars['system_emails'] = $mailinfo['system_emails'];
 
         if ($this->isBounceNotice($mid)) {
             // Fetch the original References and assign to 'references'
@@ -773,6 +829,7 @@ class MailFetcher {
 
         $seen = false;
         if (($entry = ThreadEntry::lookupByEmailHeaders($vars, $seen))
+            && ($entry instanceof ThreadEntry)
             && ($message = $entry->postEmail($vars))
         ) {
             if (!$message instanceof ThreadEntry)
@@ -780,6 +837,9 @@ class MailFetcher {
                 return $message;
             // NOTE: This might not be a "ticket"
             $ticket = $message->getThread()->getObject();
+        }
+        elseif ($entry && !$entry instanceof ThreadEntry) {
+          return null;
         }
         elseif ($seen) {
             // Already processed, but for some reason (like rejection), no
@@ -928,7 +988,8 @@ class MailFetcher {
                 db_query('UPDATE '.EMAIL_TABLE.' SET mail_errors=mail_errors+1, mail_lasterror=NOW() WHERE email_id='.db_input($emailId));
                 if (++$errors>=$MAXERRORS) {
                     //We've reached the MAX consecutive errors...will attempt logins at delayed intervals
-                    $msg="\n"._S('osTicket is having trouble fetching emails from the following mail account').": \n".
+                    // XXX: Translate me
+                    $msg="\nosTicket is having trouble fetching emails from the following mail account: \n".
                         "\n"._S('User').": ".$fetcher->getUsername().
                         "\n"._S('Host').": ".$fetcher->getHost().
                         "\n"._S('Error').": ".$fetcher->getLastError().

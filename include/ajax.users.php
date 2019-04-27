@@ -39,7 +39,7 @@ class UsersAjaxAPI extends AjaxController {
         $emails=array();
         $matches = array();
 
-        if (strlen($q) < 3)
+        if (strlen(Format::searchable($q)) < 3)
             return $this->encode(array());
 
         if (!$type || !strcasecmp($type, 'remote')) {
@@ -73,19 +73,24 @@ class UsersAjaxAPI extends AjaxController {
                     return $this->search($type, $fulltext);
                 }
             } else {
-                $users->filter(Q::any(array(
+                $filter = Q::any(array(
                     'emails__address__contains' => $q,
                     'name__contains' => $q,
                     'org__name__contains' => $q,
-                    'cdata__phone__contains' => $q,
-                )));
+                    'account__username__contains' => $q,
+                ));
+                if (UserForm::getInstance()->getField('phone')) {
+                    UserForm::ensureDynamicDataView();
+                    $filter->add(array('cdata__phone__contains' => $q));
+                }
+
+                $users->filter($filter);
             }
 
             // Omit already-imported remote users
             if ($emails = array_filter($emails)) {
                 $users->union(User::objects()
                     ->values_flat('id', 'name', 'default_email__address')
-                    ->annotate(array('__relevance__' => new SqlCode(1)))
                     ->filter(array(
                         'emails__address__in' => $emails
                 )));
@@ -165,7 +170,7 @@ class UsersAjaxAPI extends AjaxController {
 
         $errors = array();
         if ($user->updateInfo($_POST, $errors, true) && !$errors)
-             Http::response(201, $user->to_json());
+             Http::response(201, $user->to_json(),  'application/json');
 
         $forms = $user->getForms();
         include(STAFFINC_DIR . 'templates/user.tmpl.php');
@@ -268,7 +273,7 @@ class UsersAjaxAPI extends AjaxController {
     function getUser($id=false) {
 
         if(($user=User::lookup(($id) ? $id : $_REQUEST['id'])))
-           Http::response(201, $user->to_json());
+           Http::response(201, $user->to_json(), 'application/json');
 
         $info = array('error' => sprintf(__('%s: Unknown or invalid ID.'), _N('end user', 'end users', 1)));
 
@@ -294,7 +299,7 @@ class UsersAjaxAPI extends AjaxController {
             $info['title'] = __('Add New User');
             $form = UserForm::getUserForm()->getForm($_POST);
             if (($user = User::fromForm($form)))
-                Http::response(201, $user->to_json());
+                Http::response(201, $user->to_json(), 'application/json');
 
             $info['error'] = sprintf('%s - %s', __('Error adding user'), __('Please try again!'));
         }
@@ -430,7 +435,7 @@ class UsersAjaxAPI extends AjaxController {
             }
 
             if ($org && $user->setOrganization($org))
-                Http::response(201, $org->to_json());
+                Http::response(201, $org->to_json(), 'application/json');
             elseif (! $info['error'])
                 $info['error'] = __('Unable to add user to organization.')
                     .' '.__('Correct any errors below and try again.');

@@ -1,6 +1,6 @@
 <?php
 header("Content-Type: text/html; charset=UTF-8");
-header("X-Frame-Options: SAMEORIGIN");
+header("Content-Security-Policy: frame-ancestors ".$cfg->getAllowIframes().";");
 
 $title = ($ost && ($title=$ost->getPageTitle()))
     ? $title : ('osTicket :: '.__('Staff Control Panel'));
@@ -28,7 +28,7 @@ if ($lang) {
         .tip_shadow { display:block !important; }
     </style>
     <![endif]-->
-    <script type="text/javascript" src="<?php echo ROOT_PATH; ?>js/jquery-1.11.2.min.js"></script>
+    <script type="text/javascript" src="<?php echo ROOT_PATH; ?>js/jquery-3.4.0.min.js"></script>
     <link rel="stylesheet" href="<?php echo ROOT_PATH ?>css/thread.css" media="all">
     <link rel="stylesheet" href="<?php echo ROOT_PATH ?>scp/css/scp.css" media="all">
     <link rel="stylesheet" href="<?php echo ROOT_PATH; ?>css/redactor.css" media="screen">
@@ -49,6 +49,9 @@ if ($lang) {
     <link type="text/css" rel="stylesheet" href="<?php echo ROOT_PATH; ?>css/select2.min.css">
     <link type="text/css" rel="stylesheet" href="<?php echo ROOT_PATH; ?>css/rtl.css"/>
     <link type="text/css" rel="stylesheet" href="<?php echo ROOT_PATH ?>scp/css/translatable.css"/>
+    <!-- Favicons -->
+    <link rel="icon" type="image/png" href="<?php echo ROOT_PATH ?>images/oscar-favicon-32x32.png" sizes="32x32" />
+    <link rel="icon" type="image/png" href="<?php echo ROOT_PATH ?>images/oscar-favicon-16x16.png" sizes="16x16" />
 
     <?php
     if($ost && ($headers=$ost->getExtraHeaders())) {
@@ -99,10 +102,9 @@ if ($lang) {
     <ul id="nav">
 <?php include STAFFINC_DIR . "templates/navigation.tmpl.php"; ?>
     </ul>
-    <ul id="sub_nav">
-<?php include STAFFINC_DIR . "templates/sub-navigation.tmpl.php"; ?>
-    </ul>
-    <div id="content">
+    <?php include STAFFINC_DIR . "templates/sub-navigation.tmpl.php"; ?>
+
+        <div id="content">
         <?php if($errors['err']) { ?>
             <div id="msg_error"><?php echo $errors['err']; ?></div>
         <?php }elseif($msg) { ?>
