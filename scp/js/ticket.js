@@ -356,6 +356,22 @@ var ticket_onload = function($) {
             $cc.show();
      });
 
+    $('.tixTitle h3').dblclick(function() {
+      var $node = $('<input>');
+      $('body').append($node);
+      $node.val($('.sticky.bar h2 a').text().split(' ').pop() + ': ' + $('.tixTitle h3').text().trim()).select();
+      document.execCommand('copy');
+      $node.remove();
+    }).data({
+      title: 'Double-click to copy',
+      toggle: 'tooltip',
+      placement: 'bottom'
+    }).css({
+      display: 'inline-block',
+      cursor: 'pointer',
+      'user-select': 'none'
+    }).tooltip();
+
 };
 $(ticket_onload);
 $(document).on('pjax:success', function() { ticket_onload(jQuery); });
