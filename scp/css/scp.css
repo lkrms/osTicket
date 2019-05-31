@@ -1142,14 +1142,14 @@ table.list thead th {
     color:#000;
     text-align:left;
     vertical-align:top;
-    padding: 4px 5px;
+    padding: 3px 4px;
 }
 
 table.list th a {
     text-decoration:none;
     color:#000;
-    margin: -4px -5px;
-    padding: 4px 5px;
+    margin: -3px -4px;
+    padding: 3px 4px;
 }
 
 table.list thead th a { padding-right: 15px; display: block; white-space: nowrap; color: #000; background: url('../images/asc_desc.gif') 100% 50% no-repeat; }
@@ -3476,6 +3476,10 @@ input[type=checkbox] {
   position: relative;
   top: -0.05em;
   *overflow: hidden;
+}
+table.list input[type=checkbox] {
+  width: 12px;
+  height: 12px;
 }
 .vertical-pad {
   margin-top: 3px;
