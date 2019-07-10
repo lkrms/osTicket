@@ -29,6 +29,21 @@ jQuery(function() {
                         tip_box.addClass('right');
                         tip_arrow.addClass('flip-x');
                     }
+                    tip_content.has('#ticket-preview').find('h2').dblclick(function() {
+                        var $node = $('<input>');
+                        $('body').append($node);
+                        $node.val($(this).text().replace(/^.*? (?=#)/, '')).select();
+                        document.execCommand('copy');
+                        $node.remove();
+                    }).data({
+                        title: 'Double-click to copy',
+                        toggle: 'tooltip',
+                        placement: 'bottom'
+                    }).css({
+                        display: 'inline-block',
+                        cursor: 'pointer',
+                        'user-select': 'none'
+                    }).tooltip();
                 } else {
                     // Self close  if the element is gone
                     $('.tip_box').remove();
