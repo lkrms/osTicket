@@ -121,8 +121,8 @@ class API {
 
     function save($id, $vars, &$errors) {
 
-        if(!$id && (!$vars['ipaddr'] || !Validator::is_ip($vars['ipaddr'])))
-            $errors['ipaddr'] = __('Valid IP is required');
+        if(!$id && (!$vars['ipaddr'] || !Validator::is_ip_or_cidr($vars['ipaddr'])))
+            $errors['ipaddr'] = __('Valid IP or CIDR is required');
 
         if($errors) return false;
 
@@ -175,7 +175,7 @@ class ApiController {
 
         if(!($key=$this->getApiKey()))
             return $this->exerr(401, __('Valid API key required'));
-        elseif (!$key->isActive() || $key->getIPAddr()!=$_SERVER['REMOTE_ADDR'])
+        elseif (!$key->isActive() || !Validator::check_ip($_SERVER['REMOTE_ADDR'], $key->getIPAddr()))
             return $this->exerr(401, __('API key not found/active or source IP not authorized'));
 
         return $key;
