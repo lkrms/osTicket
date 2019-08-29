@@ -314,7 +314,7 @@ order by
 class PipeApiController extends TicketApiController {
 
     //Overwrite grandparent's (ApiController) response method.
-    function response($code, $resp) {
+    function response($code, $resp, $contentType = 'text/html') {
 
         //Use postfix exit codes - instead of HTTP
         switch($code) {
