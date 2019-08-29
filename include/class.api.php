@@ -184,7 +184,7 @@ class ApiController {
     function getApiKey() {
 
         if (!$this->apikey && isset($_SERVER['HTTP_X_API_KEY']) && isset($_SERVER['REMOTE_ADDR']))
-            $this->apikey = API::lookupByKey($_SERVER['HTTP_X_API_KEY'], $_SERVER['REMOTE_ADDR']);
+            $this->apikey = API::lookupByKey($_SERVER['HTTP_X_API_KEY']);
 
         return $this->apikey;
     }

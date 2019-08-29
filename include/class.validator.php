@@ -205,7 +205,7 @@ class Validator {
 
     static function is_ip_or_cidr($ip) {
         $ip = explode('/', trim($ip), 2);
-        return (filter_var($ip[0], FILTER_VALIDATE_IP) !== false) && (count($ip) == 1 || (is_numeric($ip[1]) && is_int($netmask=$ip[1]+0) && $netmask >= 0 && $netmask <= 128));
+        return (filter_var($ip[0], FILTER_VALIDATE_IP) !== false) && (count($ip) == 1 || (is_numeric($ip[1]) && is_int($netmask=$ip[1]+0) && $netmask >= 0 && $netmask <= (substr_count($ip[0], ':') > 1 ? 128 : 32)));
     }
 
     static function is_username($username, &$error='') {
