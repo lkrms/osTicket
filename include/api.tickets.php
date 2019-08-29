@@ -121,7 +121,131 @@ class TicketApiController extends ApiController {
         $this->response(201, $ticket->getNumber());
     }
 
+    /**
+     * For now, return all open tickets in one request.
+     *
+     * TODO: add optional filters, and paging.
+     *
+     * @param string $format Expected to be `json`.
+     */
+    function getTickets($format)
+    {
+        if (!$this->requireApiKey())
+            return $this->exerr(401, __('API key not authorized'));
+
+        $sql = 'select
+    t.ticket_id,
+    t.number as ticket_number,
+    td.subject,
+    ts.id as status_id,
+    ts.name as status_name,
+    ts.state as status_state,
+    tp.priority_id,
+    tp.priority,
+    tp.priority_desc,
+    tp.priority_urgency,
+    t.created,
+    t.duedate,
+    u.id as user_id,
+    u.name as user_name,
+    coalesce(ue.address,
+    ue_default.address) as user_email,
+    o.id as org_id,
+    o.name as org_name
+from
+    ' . TICKET_TABLE . ' t
+inner join ' . TICKET_CDATA_TABLE . ' td on
+    t.ticket_id = td.ticket_id
+inner join ' . TICKET_STATUS_TABLE . ' ts on
+    t.status_id = ts.id
+inner join ' . TICKET_PRIORITY_TABLE . ' tp on
+    td.priority = tp.priority_id
+inner join ' . USER_TABLE . ' u on
+    t.user_id = u.id
+left join ' . USER_EMAIL_TABLE . ' ue on
+    t.user_email_id = ue.id
+left join ' . USER_EMAIL_TABLE . ' ue_default on
+    u.default_email_id = ue_default.id
+left join ' . ORGANIZATION_TABLE . ' o on
+    u.org_id = o.id
+where
+    ts.state = \'open\'
+order by
+    tp.priority_urgency,
+    t.created';
+
+        if (!($res = db_query($sql)))
+            return $this->exerr(500, __('Unable to retrieve ticket data: unknown error'));
+
+        $tickets = [];
+
+        while (list(
+            $ticketId,
+            $ticketNumber,
+            $subject,
+            $statusId,
+            $statusName,
+            $statusState,
+            $priorityId,
+            $priorityName,
+            $priorityDesc,
+            $priorityUrgency,
+            $created,
+            $due,
+            $userId,
+            $userName,
+            $userEmail,
+            $orgId,
+            $orgName
+        ) = db_fetch_row($res)) {
+
+            $status = is_null($statusId) ? null : [
+                'status_id' => $statusId,
+                'status_name' => $statusName,
+                'status_state' => $statusState
+            ];
+
+            $priority = is_null($priorityId) ? null : [
+                'priority_id' => $priorityId,
+                'priority_name' => $priorityName,
+                'priority_desc' => $priorityDesc,
+                'priority_urgency' => $priorityUrgency
+            ];
+
+            $user = is_null($userId) ? null : [
+                'user_id' => $userId,
+                'user_name' => $userName,
+                'user_email' => $userEmail
+            ];
+
+            $org = is_null($orgId) ? null : [
+                'org_id' => $orgId,
+                'org_name' => $orgName
+            ];
+
+            $tickets[] = [
+                'ticket_id' => $ticketId,
+                'ticket_number' => $ticketNumber,
+                'subject' => $subject,
+                'status' => $status,
+                'priority' => $priority,
+                'user' => $user,
+                'org' => $org,
+                'created' => $created,
+                'due' => $due
+            ];
+        }
+
+        $this->response(201, json_encode($tickets), 'application/json');
+    }
+
     /* private helper functions */
+
+    function response($code, $resp, $contentType = 'text/html')
+    {
+        Http::response($code, $resp, $contentType);
+        exit();
+    }
 
     function createTicket($data) {
 
