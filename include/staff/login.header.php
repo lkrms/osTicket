@@ -10,10 +10,11 @@ header("Content-Security-Policy: frame-ancestors ".$cfg->getAllowIframes().";");
     <title>osTicket :: <?php echo __('Agent Login'); ?></title>
     <link rel="stylesheet" href="css/login.css" type="text/css" />
     <link type="text/css" rel="stylesheet" href="<?php echo ROOT_PATH; ?>css/font-awesome.min.css">
-<link rel="icon" href="<?php echo ROOT_PATH; ?>cropped-LINA-creative-target-colour-200x200.png" sizes="32x32" />
-<link rel="icon" href="<?php echo ROOT_PATH; ?>cropped-LINA-creative-target-colour-200x200.png" sizes="192x192" />
-<link rel="apple-touch-icon-precomposed" href="<?php echo ROOT_PATH; ?>cropped-LINA-creative-target-colour-200x200.png" />
-<meta name="msapplication-TileImage" content="<?php echo ROOT_PATH; ?>cropped-LINA-creative-target-colour-300x300.png" />
+    <!-- LINA Creative Favicons -->
+    <link rel="icon" href="<?php echo ROOT_PATH; ?>cropped-LINA-creative-target-colour-200x200.png" sizes="32x32" />
+    <link rel="icon" href="<?php echo ROOT_PATH; ?>cropped-LINA-creative-target-colour-200x200.png" sizes="192x192" />
+    <link rel="apple-touch-icon-precomposed" href="<?php echo ROOT_PATH; ?>cropped-LINA-creative-target-colour-200x200.png" />
+    <meta name="msapplication-TileImage" content="<?php echo ROOT_PATH; ?>cropped-LINA-creative-target-colour-300x300.png" />
     <meta name="robots" content="noindex" />
     <meta http-equiv="cache-control" content="no-cache" />
     <meta http-equiv="pragma" content="no-cache" />
