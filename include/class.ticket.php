@@ -879,14 +879,13 @@ implements RestrictedAccess, Threadable, Searchable {
     }
 
     function getAssignmentForm($source=null, $options=array()) {
-
         $prompt = $assignee = '';
         // Possible assignees
         $assignees = null;
+        $dept = $this->getDept();
         switch (strtolower($options['target'])) {
             case 'agents':
                 $assignees = array();
-                $dept = $this->getDept();
                 foreach ($dept->getAssignees() as $member)
                     $assignees['s'.$member->getId()] = $member;
 
@@ -926,10 +925,12 @@ implements RestrictedAccess, Threadable, Searchable {
             }
         }
 
-
-        if ($prompt && ($f=$form->getField('assignee')))
-            $f->configure('prompt', $prompt);
-
+        // Field configurations
+        if ($f=$form->getField('assignee')) {
+            if ($prompt)
+                $f->configure('prompt', $prompt);
+            $f->configure('dept', $dept);
+        }
 
         return $form;
     }
@@ -1357,7 +1358,7 @@ implements RestrictedAccess, Threadable, Searchable {
                 $this->clearOverdue(false);
 
                 $ecb = function($t) use ($status) {
-                    $t->logEvent('closed', array('status' => array($status->getId(), $status->getName())));
+                    $t->logEvent('closed', array('status' => array($status->getId(), $status->getName())), null, 'closed');
                     $t->deleteDrafts();
                 };
                 break;
@@ -1498,7 +1499,6 @@ implements RestrictedAccess, Threadable, Searchable {
         // Send alert to out sleepy & idle staff.
         if ($alertstaff
             && $cfg->alertONNewTicket()
-            && $dept->getNumMembersForAlerts()
             && ($email=$dept->getAlertEmail())
             && ($msg=$tpl->getNewTicketAlertMsgTemplate())
         ) {
@@ -1508,46 +1508,49 @@ implements RestrictedAccess, Threadable, Searchable {
             if ($message instanceof ThreadEntry && $message->isAutoReply())
                 $sentlist[] = $this->getEmail();
 
-            // Only alerts dept members if the ticket is NOT assigned.
-            $manager = $dept->getManager();
-            if ($cfg->alertDeptMembersONNewTicket() && !$this->isAssigned()
-                && ($members = $dept->getMembersForAlerts())
-            ) {
-                foreach ($members as $M)
-                    if ($M != $manager)
-                        $recipients[] = $M;
-            }
-
-            if ($cfg->alertDeptManagerONNewTicket() && $manager) {
-                $recipients[] = $manager;
-            }
-
-            // Account manager
-            if ($cfg->alertAcctManagerONNewTicket()
-                && ($org = $this->getOwner()->getOrganization())
-                && ($acct_manager = $org->getAccountManager())
-            ) {
-                if ($acct_manager instanceof Team)
-                    $recipients = array_merge($recipients, $acct_manager->getMembers());
-                else
-                    $recipients[] = $acct_manager;
-            }
-
-            foreach ($recipients as $k=>$staff) {
-                if (!is_object($staff)
-                    || !$staff->isAvailable()
-                    || in_array($staff->getEmail(), $sentlist)
+            if ($dept->getNumMembersForAlerts()) {
+                // Only alerts dept members if the ticket is NOT assigned.
+                $manager = $dept->getManager();
+                if ($cfg->alertDeptMembersONNewTicket() && !$this->isAssigned()
+                    && ($members = $dept->getMembersForAlerts())
                 ) {
-                    continue;
+                    foreach ($members as $M)
+                        if ($M != $manager)
+                            $recipients[] = $M;
                 }
-                $alert = $this->replaceVars($msg, array('recipient' => $staff));
-                $email->sendAlert($staff, $alert['subj'], $alert['body'], null, $options);
-                $sentlist[] = $staff->getEmail();
+
+                if ($cfg->alertDeptManagerONNewTicket() && $manager) {
+                    $recipients[] = $manager;
+                }
+
+                // Account manager
+                if ($cfg->alertAcctManagerONNewTicket()
+                    && ($org = $this->getOwner()->getOrganization())
+                    && ($acct_manager = $org->getAccountManager())
+                ) {
+                    if ($acct_manager instanceof Team)
+                        $recipients = array_merge($recipients, $acct_manager->getMembers());
+                    else
+                        $recipients[] = $acct_manager;
+                }
+
+                foreach ($recipients as $k=>$staff) {
+                    if (!is_object($staff)
+                        || !$staff->isAvailable()
+                        || in_array($staff->getEmail(), $sentlist)
+                    ) {
+                        continue;
+                    }
+                    $alert = $this->replaceVars($msg, array('recipient' => $staff));
+                    $email->sendAlert($staff, $alert['subj'], $alert['body'], null, $options);
+                    $sentlist[] = $staff->getEmail();
+                }
             }
 
             // Alert admin ONLY if not already a staff??
             if ($cfg->alertAdminONNewTicket()
-                    && !in_array($cfg->getAdminEmail(), $sentlist)) {
+                    && !in_array($cfg->getAdminEmail(), $sentlist)
+                    && ($dept->isGroupMembershipEnabled() != Dept::ALERTS_DISABLED)) {
                 $options += array('utype'=>'A');
                 $alert = $this->replaceVars($msg, array('recipient' => 'Admin'));
                 $email->sendAlert($cfg->getAdminEmail(), $alert['subj'],
@@ -1705,8 +1708,8 @@ implements RestrictedAccess, Threadable, Searchable {
             // to unassigned pool.
             $dept = $this->getDept();
             $staff = $this->getStaff() ?: $this->getLastRespondent();
-            $autoclaim = ($cfg->autoClaimTickets() && !$dept->disableAutoClaim());
-            if ($autoclaim
+            $autoassign = (!$dept->disableReopenAutoAssign());
+            if ($autoassign
                     && $staff
                     // Is agent on vacation ?
                     && $staff->isAvailable()
@@ -3105,7 +3108,7 @@ implements RestrictedAccess, Threadable, Searchable {
     }
 
     // Print ticket... export the ticket thread as PDF.
-    function pdfExport($psize='Letter', $notes=false) {
+    function pdfExport($psize='Letter', $notes=false, $events=false) {
         global $thisstaff;
 
         require_once(INCLUDE_DIR.'class.pdf.php');
@@ -3116,7 +3119,7 @@ implements RestrictedAccess, Threadable, Searchable {
                 $psize = 'Letter';
         }
 
-        $pdf = new Ticket2PDF($this, $psize, $notes);
+        $pdf = new Ticket2PDF($this, $psize, $notes, $events);
         $name = 'Ticket-'.$this->getNumber().'.pdf';
         Http::download($name, 'application/pdf', $pdf->output($name, 'S'));
         //Remember what the user selected - for autoselect on the next print.
@@ -3336,16 +3339,20 @@ implements RestrictedAccess, Threadable, Searchable {
                 $fid = $field->get('name');
 
                 // Convert duedate to DB timezone.
-                if ($fid == 'duedate'
-                        && ($dt = Format::parseDateTime($val))) {
-                          // Make sure the due date is valid
-                          if (Misc::user2gmtime($val) <= Misc::user2gmtime())
-                              $errors['field']=__('Due date must be in the future');
-                          else {
-                              $dt->setTimezone(new DateTimeZone($cfg->getDbTimezone()));
-                              $val = $dt->format('Y-m-d H:i:s');
-                          }
-                }
+                if ($fid == 'duedate') {
+                    if (empty($val))
+                        $val = null;
+                    elseif ($dt = Format::parseDateTime($val)) {
+                      // Make sure the due date is valid
+                      if (Misc::user2gmtime($val) <= Misc::user2gmtime())
+                          $errors['field']=__('Due date must be in the future');
+                      else {
+                          $dt->setTimezone(new DateTimeZone($cfg->getDbTimezone()));
+                          $val = $dt->format('Y-m-d H:i:s');
+                      }
+                   }
+                } elseif (is_object($val))
+                    $val = $val->getId();
 
                 $changes = array();
                 $this->{$fid} = $val;

@@ -193,6 +193,21 @@ $info = Format::htmlchars(($errors && $_POST) ? $_POST : $info);
         </tr>
 
         <tr>
+            <td><?php echo __('Reopen Auto Assignment'); ?>:</td>
+            <td>
+                <label>
+                <input type="checkbox" name="disable_reopen_auto_assign" <?php echo
+                 $info['disable_reopen_auto_assign'] ? 'checked="checked"' : ''; ?>>
+                <?php echo sprintf('<strong>%s</strong> %s',
+                        __('Disable'),
+                        __('auto assign on reopen')); ?>
+                </label>
+                <i class="help-tip icon-question-sign"
+                href="#disable_reopen_auto_assign"></i>
+            </td>
+        </tr>
+
+        <tr>
             <th colspan="2">
                 <em><strong><?php echo __('Outgoing Email Settings'); ?></strong>:</em>
             </th>
@@ -312,6 +327,7 @@ $info = Format::htmlchars(($errors && $_POST) ? $_POST : $info);
                 <select name="group_membership">
 <?php foreach (array(
     Dept::ALERTS_DISABLED =>        __("No one (disable Alerts and Notices)"),
+    Dept::ALERTS_ADMIN_ONLY =>       __("Admin Email Only"),
     Dept::ALERTS_DEPT_ONLY =>       __("Department members only"),
     Dept::ALERTS_DEPT_AND_EXTENDED => __("Department and extended access members"),
 ) as $mode=>$desc) { ?>

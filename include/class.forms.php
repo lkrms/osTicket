@@ -1441,10 +1441,13 @@ class TextboxField extends FormField {
     }
 
     function validateEntry($value) {
+        //check to see if value is the string '0'
+        $value = ($value == '0') ? '&#48' : Format::htmlchars($this->toString($value ?: $this->value));
         parent::validateEntry($value);
         $config = $this->getConfiguration();
         $validators = array(
-            '' =>       array(array('Validator', 'is_formula'),
+            '' => '',
+            'formula' => array(array('Validator', 'is_formula'),
                 __('Content cannot start with the following characters: = - + @')),
             'email' =>  array(array('Validator', 'is_valid_email'),
                 __('Enter a valid email address')),
@@ -1467,6 +1470,10 @@ class TextboxField extends FormField {
         }
         if (!$value || !isset($validators[$valid]))
             return;
+        // If no validators are set and not an instanceof AdvancedSearchForm
+        // force formula validation
+        if (!$valid && !($this->getForm() instanceof AdvancedSearchForm))
+            $valid = 'formula';
         $func = $validators[$valid];
         $error = $func[1];
         if ($config['validator-error'])
@@ -2444,18 +2451,14 @@ class DatetimeField extends FormField {
                 "{$name}__gte" => $now->plus($interval),
             ));
         case 'period':
-            // Get the period range boundaries - timezone doesn't matter
-            $period = Misc::date_range($value, Misc::gmtime('now'));
+            // User's effective timezone
             $tz = new DateTimeZone($cfg->getTimezone());
-            // Get datetime boundaries in user's effective timezone
-            $tz = new DateTimeZone($cfg->getTimezone());
-            $start = new DateTime($period->start->format('Y-m-d H:i:s'),
-                    $tz);
-            $end = new DateTime($period->end->format('Y-m-d H:i:s'), $tz);
+            // Get the period range boundaries in user's tz
+            $period = Misc::date_range($value, Misc::gmtime('now'), $tz);
             // Convert boundaries to db time
             $dbtz = new DateTimeZone($cfg->getDbTimezone());
-            $start->setTimezone($dbtz);
-            $end->setTimezone($dbtz);
+            $start = $period->start->setTimezone($dbtz);
+            $end = $period->end->setTimezone($dbtz);
             // Set the range
             return new Q(array(
                 "{$name}__range" => array(
@@ -4412,7 +4415,8 @@ class DatetimePickerWidget extends Widget {
 
         $config = $this->field->getConfiguration();
         $timezone = $this->field->getTimezone();
-
+        $dateFormat = $cfg->getDateFormat(true);
+        $timeFormat = $cfg->getTimeFormat(true);
         if (!isset($this->value) && ($default=$this->field->get('default')))
             $this->value = $default;
 
@@ -4429,14 +4433,14 @@ class DatetimePickerWidget extends Widget {
                 // Convert to user's timezone for update.
                 $datetime->setTimezone($timezone);
 
-            // Get the date
+            // Get formatted date
             $this->value = Format::date($datetime->getTimestamp(), false,
                         false, $timezone ? $timezone->getName() : 'UTC');
-
-            // TODO: Fix timeformat based on config. For now we're forcing
-            // hh:mm tt
+            // Get formatted time
             if ($config['time']) {
-                 $this->value .=$datetime->format(' h:i a');
+                 $this->value .=' '.Format::time($datetime->getTimestamp(),
+                         false, $timeFormat, $timezone ?
+                         $timezone->getName() : 'UTC');
             }
 
         } else {
@@ -4479,14 +4483,15 @@ class DatetimePickerWidget extends Widget {
                                 controlType: 'select',\n
                                 timeInput: true,\n
                                 timeFormat: \"%s\",\n",
-                                "hh:mm tt");
+                                Format::dtfmt_php2js($timeFormat));
                     }
                     ?>
                     numberOfMonths: 2,
                     showButtonPanel: true,
                     buttonImage: './images/cal.png',
                     showOn:'both',
-                    dateFormat: $.translate_format('<?php echo $cfg->getDateFormat(true); ?>')
+                    dateFormat: '<?php echo
+                        Format::dtfmt_php2js($dateFormat); ?>'
                 });
             });
         </script>
@@ -4505,7 +4510,7 @@ class DatetimePickerWidget extends Widget {
             // See if we have time
             $data = $this->field->getSource();
             // Parse value into datetime object
-            $dt = Format::parseDatetime($value);
+            $dt = Format::parseDateTime($value);
             // Effective timezone for the selection
             if (($timezone = $this->field->getTimezone()))
                 $dt->setTimezone($timezone);

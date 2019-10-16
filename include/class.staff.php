@@ -93,6 +93,7 @@ implements AuthenticatedUser, EmailContact, TemplateVariable, Searchable {
                         'thread_view_order' => '',
                         'default_ticket_queue_id' => 0,
                         'reply_redirect' => 'Ticket',
+                        'img_att_view' => 'download',
                         ));
             $this->_config = $_config->getInfo();
         }
@@ -353,6 +354,10 @@ implements AuthenticatedUser, EmailContact, TemplateVariable, Searchable {
         return $this->reply_redirect;
     }
 
+    function getImageAttachmentView() {
+        return $this->img_att_view;
+    }
+
     function forcePasswdChange() {
         return $this->change_passwd;
     }
@@ -426,7 +431,7 @@ implements AuthenticatedUser, EmailContact, TemplateVariable, Searchable {
         // Grant access to the current department
         $old = $this->dept_id;
         if ($eavesdrop) {
-            $da = StaffDeptAccess::create(array(
+            $da = new StaffDeptAccess(array(
                 'dept_id' => $old,
                 'role_id' => $this->role_id,
             ));
@@ -769,6 +774,7 @@ implements AuthenticatedUser, EmailContact, TemplateVariable, Searchable {
                     'thread_view_order' => $vars['thread_view_order'],
                     'default_ticket_queue_id' => $vars['default_ticket_queue_id'],
                     'reply_redirect' => ($vars['reply_redirect'] == 'Queue') ? 'Queue' : 'Ticket',
+                    'img_att_view' => ($vars['img_att_view'] == 'inline') ? 'inline' : 'download',
                     )
                 );
         $this->_config = $_config->getInfo();
@@ -1151,6 +1157,12 @@ implements AuthenticatedUser, EmailContact, TemplateVariable, Searchable {
         $this->phone_ext = $vars['phone_ext'];
         $this->mobile = Format::phone($vars['mobile']);
         $this->notes = Format::sanitize($vars['notes']);
+
+        // Set staff password if exists
+        if (!$vars['welcome_email'] && $vars['passwd1']) {
+            $this->setPassword($vars['passwd1'], null);
+            $this->change_passwd = $vars['change_passwd'] ? 1 : 0;
+        }
 
         if ($errors)
             return false;
